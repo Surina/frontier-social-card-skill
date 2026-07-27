@@ -9,11 +9,11 @@
 
 `frontier-social-card` 可以把一个主题、草稿、长文、参考图片或产品图片，转化为一套适合小红书发布的完整图文内容。
 
-它不依赖特定产品后端，也不会调用 GenieRabbit API。安装后，可以使用当前 Agent 自带的图片能力，或配置自己的 Google Gemini、OpenAI 或 OpenAI 兼容图片 API。
+安装后，可以使用当前 Agent 自带的图片能力，或配置自己的 Google Gemini、OpenAI 或 OpenAI 兼容图片 API。
 
 ### 主要能力
 
-- 以小红书、RedNote、RedBook、Xiaohongshu 为主要发布平台
+- 以小红书（RedNote、RedBook、Xiaohongshu）为主要发布平台
 - 从主题、文章或草稿生成详细分页大纲
 - 先展示大纲，获得确认后再生成图片
 - 生成封面标题、分页文案、发布正文、备选标题和标签
