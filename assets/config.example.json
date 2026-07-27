@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "provider": "agent_tool",
+  "model": "",
+  "base_url": "",
+  "aspect_ratio": "3:4",
+  "size": "1024x1536",
+  "quality": "high",
+  "quality_profile": "quality",
+  "temperature": 1.0,
+  "image_size": "2K",
+  "text_provider": "google",
+  "text_model": "gemini-3.5-flash",
+  "text_base_url": "https://generativelanguage.googleapis.com/v1beta",
+  "text_temperature": 1.0,
+  "text_max_output_tokens": 8000,
+  "text_credential_name": "google",
+  "credential_name": "default"
+}
