@@ -2,7 +2,7 @@
 
 > 把主题、文章、草稿和产品素材，变成一套可以继续修改和发布的小红书图文。
 
-`frontier-social-card-skill` 是一个面向 Codex 等本地 AI Agent 的独立 Skill。它可以生成一整套风格一致、符合用户提供主题或者内容的爆款图文：
+`frontier-social-card-skill` 是一个面向 Codex / Claude 等本地 AI Agent 的独立 Skill。它可以生成一整套风格一致、符合用户提供主题或者内容的爆款图文：
 
 **内容拆解 → 分页大纲 → 用户确认 → 发布文案 → 分页配图 → 完整交付**
 
@@ -270,8 +270,6 @@ Skill 优先使用当前 Agent 已经具备的图片生成工具。如果 Agent 
 
 ## 隐私与密钥
 
-- 不连接 GenieRabbit API、数据库或账号系统
-- 不要求安装或运行 GenieRabbit
 - 不在聊天中索取、显示或记录 API Key
 - 优先把密钥存入系统密钥库
 - 系统密钥库不可用时，才保存到仅当前用户可读的本地配置文件
