@@ -19,6 +19,8 @@ Before the first creation request, run `python3 scripts/setup.py --status`. If i
 2. Otherwise, tell the user to run `python3 scripts/setup.py` locally. The wizard collects provider choices and secrets; never collect an API key in chat.
 3. Do not block text planning while image setup is incomplete. Create the plan and image prompts, then give the user the single setup command needed to generate images.
 
+For external API mode, ensure dependencies are installed with `python3 -m pip install -r requirements.txt`. Do not reinstall them when imports already succeed.
+
 When distributing or installing this skill manually, always show this setup command after copying the folder:
 
 ```bash
@@ -49,13 +51,14 @@ Run this as a two-turn workflow. Never combine outline approval and image genera
 
 ### Phase 2: Create after approval
 
-1. Read [references/copywriting-rules.md](references/copywriting-rules.md) and write the publication copy.
-2. Read [references/image-prompt-rules.md](references/image-prompt-rules.md), then build a page plan matching [references/output-schema.md](references/output-schema.md).
-3. Validate the plan with `python3 scripts/validate_plan.py <plan.json>`.
-4. For API generation, always use `scripts/generate.py`; it loads the bundled high-fidelity prompt from `assets/image_prompt.txt`, injects the full outline and user topic, generates the cover first, and passes that cover as `@封面参考图` to every later Gemini request.
-5. Generate the remaining pages in page order. Preserve successful pages if one page fails; retry only the failed or visibly defective page once.
-6. Visually inspect every generated page for missing pages, unreadable text, invented text and obvious style drift.
-7. Deliver the selected title, alternatives, body, tags, plan JSON, and numbered images. If images are unavailable, clearly deliver reusable per-page prompts instead.
+1. Run `python3 scripts/generate_content.py --outline <outline.json> --output <content.json>` to generate titles, publication copy and tags with the bundled original content prompt. Do not substitute Agent-authored publication copy for this call.
+2. Do not create a new image plan and do not rewrite the approved outline into `headline`, `body`, `visual`, `text_overlay`, or `image_prompt` fields. The original `pages[].content`, `outline`, and `topic` in `outline.json` are the image-generation source of truth.
+3. If the user changed a page, edit only that page's raw `content` in `outline.json` and rebuild its top-level `outline` by joining all raw page contents with `<page>`. Preserve every unchanged page verbatim.
+4. For API generation, run `python3 scripts/generate.py --outline <outline.json> --output <directory>`. The script loads `assets/image_prompt.txt`, passes the original page content, full outline and user topic unchanged, generates the cover first, and passes it as `@封面参考图` to every later Gemini request.
+5. Generate the remaining pages in page order. Preserve successful pages if one page fails; retry only the failed or visibly defective page once with `--pages`.
+6. If Gemini returns a normal text-only response, let `generate.py` fall back to a non-stream request and then one explicit image-only corrective request. If the cover still fails, stop immediately; do not run dependent pages until the cover succeeds.
+7. Visually inspect every generated page for missing pages, unreadable text, invented text and obvious style drift.
+8. Deliver `content.json`, the approved outline JSON, and numbered images. If images are unavailable, clearly deliver reusable per-page prompts instead.
 
 ## Display the finished work
 

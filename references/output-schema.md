@@ -1,42 +1,25 @@
 # 输出结构
 
-将创作计划保存为 UTF-8 JSON：
+图片生成直接使用 `generate_outline.py` 输出的 UTF-8 JSON：
 
 ```json
 {
-  "version": 1,
-  "brief": {
-    "topic": "主题",
-    "platform": "xiaohongshu",
-    "audience": "目标人群",
-    "goal": "内容目标",
-    "tone": "表达风格",
-    "visual_style": "视觉风格",
-    "aspect_ratio": "3:4",
-    "reference_images": [],
-    "product_images": []
-  },
-  "post": {
-    "selected_title": "主标题",
-    "alternative_titles": ["备选一", "备选二"],
-    "body": "发布正文",
-    "tags": ["标签一", "标签二"]
-  },
+  "success": true,
+  "topic": "用户原始主题或全文",
+  "outline": "[封面]\\n...\\n<page>\\n[内容]\\n...",
+  "reference_images": [],
+  "product_images": [],
   "pages": [
     {
       "index": 1,
       "type": "cover",
-      "headline": "画面标题",
-      "body": ["副标题或要点"],
-      "visual": "画面说明",
-      "text_overlay": ["必须显示的文字"],
-      "reference_images": [],
-      "product_images": [],
-      "image_prompt": "独立完整的图片提示词"
+      "content": "[封面]\\n标题：..."
     }
   ]
 }
 ```
+
+不要为了图片生成创建第二份页面计划。发布文案可以单独保存，但不得反向改写 `pages[].content`。
 
 图片文件使用两位页码：`01-cover.png`、`02-content.png`。即使生成部分失败，也保留计划和成功图片，并记录失败页。
 

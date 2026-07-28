@@ -9,6 +9,7 @@ import io
 import json
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -73,7 +74,7 @@ def extension(data: bytes) -> str:
     return {"image/jpeg": ".jpg", "image/webp": ".webp"}.get(mime_type(data), ".png")
 
 
-def compress_reference(data: bytes, max_kb: int = 220) -> bytes:
+def compress_reference(data: bytes, max_kb: int = 80) -> bytes:
     if len(data) <= max_kb * 1024:
         return data
     try:
@@ -81,20 +82,65 @@ def compress_reference(data: bytes, max_kb: int = 220) -> bytes:
 
         image = Image.open(io.BytesIO(data))
         image.load()
-        image.thumbnail((1600, 1600))
-        if image.mode not in {"RGB", "L"}:
+        if image.mode in {"RGBA", "LA", "P"}:
+            if image.mode == "P":
+                image = image.convert("RGBA")
+            background = Image.new("RGB", image.size, (255, 255, 255))
+            background.paste(image, mask=image.split()[-1] if image.mode in {"RGBA", "LA"} else None)
+            image = background
+        elif image.mode != "RGB":
             image = image.convert("RGB")
-        for quality in (88, 78, 68, 58):
+        image.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+        compressed = data
+        for quality in range(85, 19, -5):
             output = io.BytesIO()
             image.save(output, format="JPEG", quality=quality, optimize=True)
-            if len(output.getvalue()) <= max_kb * 1024:
-                return output.getvalue()
-        return output.getvalue()
+            compressed = output.getvalue()
+            if len(compressed) <= max_kb * 1024:
+                return compressed
+        width, height = image.size
+        while len(compressed) > max_kb * 1024 and max(width, height) > 512:
+            width, height = int(width * 0.9), int(height * 0.9)
+            resized = image.resize((width, height), Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            resized.save(output, format="JPEG", quality=20, optimize=True)
+            compressed = output.getvalue()
+        return compressed
+    except Exception:
+        return data
+
+
+def compress_product_image(data: bytes, max_kb: int = 256) -> bytes:
+    if len(data) <= max_kb * 1024:
+        return data
+    try:
+        from PIL import Image  # type: ignore
+
+        image = Image.open(io.BytesIO(data))
+        image.load()
+        image.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+        has_alpha = image.mode in {"RGBA", "LA"} or (image.mode == "P" and "transparency" in image.info)
+        output = io.BytesIO()
+        if has_alpha:
+            image.convert("RGBA").save(output, format="PNG", optimize=True)
+            return output.getvalue()
+        image = image.convert("RGB")
+        compressed = data
+        for quality in range(95, 59, -5):
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=quality, optimize=True)
+            compressed = output.getvalue()
+            if len(compressed) <= max_kb * 1024:
+                break
+        return compressed
     except Exception:
         return data
 
 
 def page_content(page: dict) -> str:
+    raw = page.get("content") or page.get("raw_content")
+    if raw:
+        return str(raw).strip()
     body = page.get("body") or []
     if isinstance(body, str):
         body = [body]
@@ -113,10 +159,11 @@ def page_content(page: dict) -> str:
 
 
 def full_outline(plan: dict) -> str:
+    if str(plan.get("source_outline") or "").strip():
+        return str(plan["source_outline"]).strip()
     blocks = []
-    labels = {"cover": "封面", "content": "内容", "summary": "总结"}
     for page in plan["pages"]:
-        blocks.append(f"[{labels.get(page.get('type'), '内容')}]\n{page_content(page)}")
+        blocks.append(page_content(page))
     return "\n\n<page>\n\n".join(blocks)
 
 
@@ -147,7 +194,9 @@ def read_paths(values: list[str], label: str) -> list[tuple[str, bytes]]:
         path = Path(raw).expanduser()
         if not path.exists():
             raise FileNotFoundError(f"{label}{index} 不存在：{path}")
-        items.append((f"@{label}{index}", compress_reference(path.read_bytes(), 500 if label == "产品图" else 220)))
+        data = path.read_bytes()
+        data = compress_product_image(data) if label == "产品图" else compress_reference(data, 80)
+        items.append((f"@{label}{index}", data))
     return items
 
 
@@ -156,11 +205,17 @@ def find_generated(output: Path, index: int, kind: str) -> Path | None:
     return matches[0] if matches else None
 
 
-def google_parts(prompt: str, references: list[tuple[str, bytes]]) -> list[dict]:
-    parts: list[dict] = []
+def google_parts(prompt: str, references: list[tuple[str, bytes]], types_module=None) -> list:
+    parts: list = []
     if references:
-        for _, data in references:
-            parts.append({"inlineData": {"mimeType": mime_type(data), "data": base64.b64encode(data).decode("ascii")}})
+        for label, data in references:
+            compressed = compress_product_image(data) if label.startswith("@产品图") else compress_reference(data, 80)
+            if types_module is None:
+                parts.append({"inlineData": {"mimeType": mime_type(compressed), "data": base64.b64encode(compressed).decode("ascii")}})
+            else:
+                parts.append(types_module.Part(
+                    inline_data=types_module.Blob(mime_type=mime_type(compressed), data=compressed)
+                ))
         mapping = "\n".join(f"- 第 {index} 张输入图片对应 {label}" for index, (label, _) in enumerate(references, 1))
         prompt = f"""你将看到若干张参考图，请严格理解它们与提示词中图片标签的对应关系。
 
@@ -168,46 +223,169 @@ def google_parts(prompt: str, references: list[tuple[str, bytes]]) -> list[dict]
 {mapping}
 
 生成要求：
-1. @封面参考图用于锁定整套图文的配色、字体气质、装饰元素、信息层级和版式节奏，后续页必须明显属于同一套视觉系统。
-2. @参考图N 只承担提示词指定的风格、构图、人物或场景角色。
-3. @产品图N 必须真实植入，不得替换成相似产品或重新设计包装。
-4. 最终图片须自然、完整、可直接用于社交媒体发布。
+1. 如果提示词要求“把产品 @产品图1 进行植入”或类似表达，必须把对应图片中的主体/产品真实地出现在生成结果中，而不只是参考风格。
+2. 如果提示词同时引用多个图片标签，要分别理解每张参考图承担的角色，例如人物、产品、场景、构图或风格。
+3. 除非提示词明确要求替换主体，否则要优先保留被引用参考图中的核心主体特征。
+4. 最终图片仍需保持自然、真实、可用，不能只做抽象致敬或弱化产品存在感。
 
 用户提示词：
 {prompt}"""
-    parts.append({"text": prompt})
+    parts.append({"text": prompt} if types_module is None else types_module.Part(text=prompt))
     return parts
 
 
+def read_google_response(response) -> tuple[bytes | None, list[str]]:
+    """Extract image bytes and useful diagnostics from a Gemini response or chunk."""
+    diagnostics: list[str] = []
+    prompt_feedback = getattr(response, "prompt_feedback", None)
+    block_reason = getattr(prompt_feedback, "block_reason", None) if prompt_feedback else None
+    if block_reason:
+        diagnostics.append(f"prompt block reason: {block_reason}")
+
+    for candidate in getattr(response, "candidates", None) or []:
+        content = getattr(candidate, "content", None)
+        for part in getattr(content, "parts", None) or []:
+            inline = getattr(part, "inline_data", None)
+            data = getattr(inline, "data", None) if inline is not None else None
+            if data:
+                if isinstance(data, str):
+                    try:
+                        data = base64.b64decode(data)
+                    except Exception:
+                        diagnostics.append("image data was not valid base64")
+                        continue
+                return bytes(data), diagnostics
+            response_text = str(getattr(part, "text", "") or "").strip()
+            if response_text:
+                diagnostics.append(f"model response: {response_text[:300]}")
+        finish_reason = getattr(candidate, "finish_reason", None)
+        if finish_reason:
+            diagnostics.append(f"finish reason: {finish_reason}")
+    return None, diagnostics
+
+
 def generate_google(prompt: str, config: dict, api_key: str, references: list[tuple[str, bytes]]) -> bytes:
-    model = urllib.parse.quote(config["model"], safe="-._")
-    url = f"{config['base_url'].rstrip('/')}/models/{model}:generateContent?key={urllib.parse.quote(api_key)}"
-    image_config = {"aspectRatio": config.get("aspect_ratio", "3:4")}
-    if config.get("image_size"):
-        image_config["imageSize"] = config["image_size"]
-    payload = {
-        "contents": [{"role": "user", "parts": google_parts(prompt, references)}],
-        "generationConfig": {
-            "temperature": config.get("temperature", 1.0),
-            "topP": 0.95,
-            "maxOutputTokens": 32768,
-            "responseModalities": ["TEXT", "IMAGE"],
-            "imageConfig": image_config,
-        },
-    }
-    last_error: Exception | None = None
-    for _ in range(2):
+    try:
+        from google import genai  # type: ignore
+        from google.genai import types  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("缺少 google-genai，请运行：python3 -m pip install google-genai") from exc
+
+    http_options: dict = {"api_version": "v1beta", "timeout": int(config.get("request_timeout_ms") or 180000)}
+    base_url = str(config.get("base_url") or "").rstrip("/")
+    if base_url and base_url != "https://generativelanguage.googleapis.com/v1beta":
+        http_options["base_url"] = base_url
+    client = genai.Client(
+        api_key=api_key,
+        vertexai=False,
+        http_options=types.HttpOptions(**http_options),
+    )
+    def make_contents(request_prompt: str) -> list:
+        return [
+            types.Content(
+                role="user",
+                parts=google_parts(request_prompt, references, types),
+            )
+        ]
+
+    contents = make_contents(prompt)
+    generation_config = types.GenerateContentConfig(
+        temperature=config.get("temperature", 1.0),
+        top_p=0.95,
+        # Image responses can consume far more output tokens than text. A 1024
+        # fallback intermittently ends valid image requests with MAX_TOKENS.
+        max_output_tokens=int(config.get("max_output_tokens") or 32768),
+        response_modalities=["TEXT", "IMAGE"],
+        safety_settings=[
+            types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="OFF"),
+            types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="OFF"),
+            types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="OFF"),
+            types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="OFF"),
+        ],
+        image_config=types.ImageConfig(aspect_ratio=config.get("aspect_ratio", "3:4")),
+    )
+
+    diagnostics: list[str] = []
+    for attempt in range(2):
         try:
-            result = request_json(url, payload, {})
-            for candidate in result.get("candidates") or []:
-                for part in (candidate.get("content") or {}).get("parts") or []:
-                    inline = part.get("inlineData") or part.get("inline_data") or {}
-                    if inline.get("data"):
-                        return base64.b64decode(inline["data"])
-            last_error = RuntimeError("Gemini 没有返回图片；请确认模型支持图片输出")
+            for chunk in client.models.generate_content_stream(
+                model=config["model"],
+                contents=contents,
+                config=generation_config,
+            ):
+                image_data, chunk_diagnostics = read_google_response(chunk)
+                diagnostics.extend(chunk_diagnostics)
+                if image_data:
+                    return image_data
+            break
         except Exception as exc:
-            last_error = exc
-    raise last_error or RuntimeError("Gemini 图片生成失败")
+            text = str(exc).lower()
+            if attempt == 0 and any(token in text for token in ("500", "internal", "503", "unavailable")):
+                time.sleep(1.5)
+                continue
+            raise
+
+    # A normal STOP can still contain only text. Always try the regular endpoint
+    # before treating a text-only streaming response as a failed image request.
+    try:
+        response = client.models.generate_content(
+            model=config["model"],
+            contents=contents,
+            config=generation_config,
+        )
+        image_data, response_diagnostics = read_google_response(response)
+        diagnostics.extend(response_diagnostics)
+        if image_data:
+            return image_data
+    except Exception as exc:
+        diagnostics.append(f"non-stream request failed: {exc}")
+
+    # Gemini may occasionally answer an image request with explanatory text.
+    # Make one explicit corrective request while preserving the original prompt
+    # and all reference-image inputs.
+    corrective_prompt = (
+        f"{prompt.rstrip()}\n\n"
+        "【输出纠偏】上一轮没有返回图片。请不要解释、分析或回复文字，"
+        "必须直接生成并返回一张符合以上要求的完整图片。"
+    )
+    try:
+        response = client.models.generate_content(
+            model=config["model"],
+            contents=make_contents(corrective_prompt),
+            config=generation_config,
+        )
+        image_data, response_diagnostics = read_google_response(response)
+        diagnostics.extend(response_diagnostics)
+        if image_data:
+            return image_data
+    except Exception as exc:
+        diagnostics.append(f"corrective request failed: {exc}")
+
+    detail = "；".join(dict.fromkeys(diagnostics))[:600]
+    raise RuntimeError(f"Gemini 没有返回图片：{detail or '没有候选内容或图片数据'}")
+
+
+def plan_from_outline(data: dict) -> dict:
+    pages = data.get("pages") or []
+    if not pages:
+        raise ValueError("outline.json 中没有 pages")
+    return {
+        "version": 1,
+        "brief": {
+            "topic": str(data.get("topic") or ""),
+            "reference_images": list(data.get("reference_images") or []),
+            "product_images": list(data.get("product_images") or []),
+        },
+        "source_outline": str(data.get("outline") or ""),
+        "pages": [
+            {
+                "index": int(page["index"]),
+                "type": page.get("type") or "content",
+                "content": str(page.get("content") or "").strip(),
+            }
+            for page in pages
+        ],
+    }
 
 
 def generate_openai(prompt: str, config: dict, api_key: str) -> bytes:
@@ -228,11 +406,15 @@ def generate_openai(prompt: str, config: dict, api_key: str) -> bytes:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="按高保真图文管线生成分页图片")
-    parser.add_argument("--plan", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--outline", help="generate_outline.py 生成并经用户确认的 outline.json")
+    source.add_argument("--plan", help="旧版结构化 plan.json（兼容模式）")
     parser.add_argument("--output", required=True)
     parser.add_argument("--pages", help="只生成指定页，例如 2,5")
     args = parser.parse_args()
-    plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+    source_path = args.outline or args.plan
+    source_data = json.loads(Path(source_path).read_text(encoding="utf-8"))
+    plan = plan_from_outline(source_data) if args.outline else source_data
     errors = validate(plan)
     if errors:
         print("计划验证失败：\n- " + "\n- ".join(errors))
@@ -249,6 +431,18 @@ def main() -> int:
 
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
+    result_path = output / "generation-result.json"
+    previous_result: dict = {}
+    if result_path.exists():
+        try:
+            previous_result = json.loads(result_path.read_text(encoding="utf-8"))
+        except Exception:
+            previous_result = {}
+    failure_map = {
+        int(item["index"]): str(item.get("error") or "")
+        for item in previous_result.get("failures", [])
+        if str(item.get("index", "")).isdigit()
+    }
     selected = plan["pages"]
     if args.pages:
         wanted = {int(value) for value in args.pages.split(",") if value.strip()}
@@ -260,7 +454,6 @@ def main() -> int:
     brief = plan.get("brief") or {}
     shared_style = read_paths(brief.get("reference_images") or [], "参考图")
     shared_products = read_paths(brief.get("product_images") or [], "产品图")
-    failures = []
     for position, page in enumerate(selected, 1):
         number, kind = int(page["index"]), page["type"]
         print(f"[{position}/{len(selected)}] 正在生成第 {number} 页 {kind}…")
@@ -271,7 +464,7 @@ def main() -> int:
             if number != 1:
                 cover = find_generated(output, 1, "cover")
                 if cover:
-                    references.append(("@封面参考图", compress_reference(cover.read_bytes(), 220)))
+                    references.append(("@封面参考图", compress_reference(cover.read_bytes(), 80)))
                 elif provider == "google":
                     raise RuntimeError("后续页面生成前必须先生成封面")
             prompt = build_prompt(plan, page, len(page_style), len(page_products))
@@ -287,12 +480,44 @@ def main() -> int:
                 old.unlink()
             path = output / f"{number:02d}-{kind}{extension(data)}"
             path.write_bytes(data)
+            failure_map.pop(number, None)
             print(f"✓ {path}")
         except Exception as exc:
-            failures.append({"index": number, "error": str(exc)})
+            failure_map[number] = str(exc)
             print(f"✗ 第 {number} 页失败：{exc}")
-    (output / "generation-result.json").write_text(
-        json.dumps({"success": not failures, "pipeline": "high_fidelity_v2", "failures": failures, "model": config.get("model")}, ensure_ascii=False, indent=2),
+            if number == 1:
+                print("封面生成失败，已停止后续页面；修复后可仅重试封面。")
+                break
+
+    generated = []
+    missing = []
+    for page in plan["pages"]:
+        number, kind = int(page["index"]), page["type"]
+        path = find_generated(output, number, kind)
+        if path:
+            generated.append({"index": number, "path": str(path.resolve())})
+        else:
+            missing.append(number)
+    failures = [
+        {"index": index, "error": error}
+        for index, error in sorted(failure_map.items())
+    ]
+    success = not failures and not missing
+    status = "completed" if success else ("partial" if generated else "failed")
+    result_path.write_text(
+        json.dumps(
+            {
+                "success": success,
+                "status": status,
+                "pipeline": "high_fidelity_v2",
+                "generated": generated,
+                "missing": missing,
+                "failures": failures,
+                "model": config.get("model"),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
     return 1 if failures else 0
