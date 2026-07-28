@@ -44,7 +44,7 @@ def status() -> int:
 
 
 def configure() -> int:
-    print("\n欢迎使用 frontier-social-card Skill\n")
+    print("\n欢迎使用 frontier-social-card-skill Skill\n")
     print("请选择图片生成方式：\n")
     for key, item in PROVIDERS.items():
         print(f"{key}. {item['label']}")

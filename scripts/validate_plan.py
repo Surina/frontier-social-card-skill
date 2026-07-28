@@ -19,13 +19,18 @@ def validate(data: dict) -> list[str]:
     actual = [page.get("index") for page in pages]
     if actual != expected:
         errors.append(f"页码必须从 1 连续排列，当前为 {actual}")
-    required = {"index", "type", "headline", "body", "visual", "text_overlay", "image_prompt"}
     for page in pages:
+        if page.get("type") not in {"cover", "content", "summary"}:
+            errors.append(f"第 {page.get('index', '?')} 页 type 无效")
+        raw_content = page.get("content") or page.get("raw_content")
+        if raw_content:
+            if not str(raw_content).strip():
+                errors.append(f"第 {page.get('index', '?')} 页 content 为空")
+            continue
+        required = {"headline", "body", "visual", "text_overlay", "image_prompt"}
         missing = sorted(key for key in required if key not in page)
         if missing:
             errors.append(f"第 {page.get('index', '?')} 页缺少字段：{', '.join(missing)}")
-        if page.get("type") not in {"cover", "content", "summary"}:
-            errors.append(f"第 {page.get('index', '?')} 页 type 无效")
         if not str(page.get("image_prompt", "")).strip():
             errors.append(f"第 {page.get('index', '?')} 页 image_prompt 为空")
     return errors

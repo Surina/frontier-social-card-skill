@@ -145,7 +145,15 @@ def main() -> int:
     if not pages:
         print("未能从模型响应中解析出页面")
         return 1
-    result = {"success": True, "topic": topic.strip(), "outline": raw, "pages": pages, "has_images": bool(normal or products)}
+    result = {
+        "success": True,
+        "topic": topic.strip(),
+        "outline": raw,
+        "pages": pages,
+        "reference_images": [str(Path(value).expanduser().resolve()) for value in args.image],
+        "product_images": [str(Path(value).expanduser().resolve()) for value in args.product_image],
+        "has_images": bool(normal or products),
+    }
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
