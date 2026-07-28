@@ -55,7 +55,7 @@ def request_json(url: str, payload: dict, headers: dict, timeout: int = 300) -> 
 
 
 def download(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": "frontier-social-card/2.0"})
+    request = urllib.request.Request(url, headers={"User-Agent": "frontier-social-card-skill/2.0"})
     with urllib.request.urlopen(request, timeout=300, context=ssl_context()) as response:
         return response.read()
 

@@ -8,18 +8,27 @@ import json
 import os
 from pathlib import Path
 
-APP_NAME = "frontier-social-card"
+APP_NAME = "frontier-social-card-skill"
+LEGACY_APP_NAME = "frontier-social-card"
 
 
-def config_dir() -> Path:
+def _config_dir(app_name: str) -> Path:
     override = os.environ.get("SOCIAL_IMAGE_POST_CONFIG_DIR")
     if override:
         return Path(override).expanduser()
     if os.name == "nt":
         root = Path(os.environ.get("APPDATA", Path.home()))
-        return root / APP_NAME
+        return root / app_name
     root = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
-    return root / APP_NAME
+    return root / app_name
+
+
+def config_dir() -> Path:
+    current = _config_dir(APP_NAME)
+    legacy = _config_dir(LEGACY_APP_NAME)
+    if not current.exists() and legacy.exists():
+        return legacy
+    return current
 
 
 def config_path() -> Path:
@@ -85,9 +94,10 @@ def load_secret(name: str) -> str:
     keyring = _keyring()
     if keyring is not None:
         try:
-            value = keyring.get_password(APP_NAME, name)
-            if value:
-                return value
+            for service_name in (APP_NAME, LEGACY_APP_NAME):
+                value = keyring.get_password(service_name, name)
+                if value:
+                    return value
         except Exception:
             pass
     if secret_path().exists():
@@ -98,10 +108,11 @@ def load_secret(name: str) -> str:
 def delete_secret(name: str) -> None:
     keyring = _keyring()
     if keyring is not None:
-        try:
-            keyring.delete_password(APP_NAME, name)
-        except Exception:
-            pass
+        for service_name in (APP_NAME, LEGACY_APP_NAME):
+            try:
+                keyring.delete_password(service_name, name)
+            except Exception:
+                pass
     if secret_path().exists():
         values = json.loads(secret_path().read_text(encoding="utf-8"))
         values.pop(name, None)

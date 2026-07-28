@@ -1,8 +1,8 @@
-# Frontier Social Card
+# Frontier Social Card Skill
 
 > 把主题、文章、草稿和产品素材，变成一套可以继续修改和发布的小红书图文。
 
-`frontier-social-card` 是一个面向 Codex 等本地 AI Agent 的独立 Skill。它可以生成一整套风格一致、符合用户提供主题或者内容的爆款图文：
+`frontier-social-card-skill` 是一个面向 Codex 等本地 AI Agent 的独立 Skill。它可以生成一整套风格一致、符合用户提供主题或者内容的爆款图文：
 
 **内容拆解 → 分页大纲 → 用户确认 → 发布文案 → 分页配图 → 完整交付**
 
@@ -15,20 +15,20 @@
 安装完成后，在 Codex 中直接说：
 
 ```text
-使用 $frontier-social-card，把这篇文章制作成一套 7 页小红书图文。
+使用 $frontier-social-card-skill，把这篇文章制作成一套 7 页小红书图文。
 ```
 
 也可以从一个简单主题开始：
 
 ```text
-使用 $frontier-social-card，做一套“小团队如何用 AI 做内容营销”的
+使用 $frontier-social-card-skill，做一套“小团队如何用 AI 做内容营销”的
 小红书图文，目标读者是独立创业者，风格专业但不要太像课程广告。
 ```
 
 如果有参考图或产品图，可以一起提供：
 
 ```text
-使用 $frontier-social-card，为这个产品制作一套面向澳洲华人的
+使用 $frontier-social-card-skill，为这个产品制作一套面向澳洲华人的
 RedNote 种草图文。第一张图只参考视觉风格，第二、三张是产品图，
 请保留包装、颜色和品牌识别。
 ```
@@ -37,7 +37,7 @@ Skill 会先给出完整的分页大纲。你可以逐页修改；确认后，�
 
 ## 它是什么
 
-普通生图提示词解决的是“生成一张图”。`frontier-social-card` 解决的是“完成一整套图文”：
+普通生图提示词解决的是“生成一张图”。`frontier-social-card-skill` 解决的是“完成一整套图文”：
 
 - 从主题、草稿或长文中提取适合社交媒体阅读的内容主线
 - 把内容拆成有开头、展开和收束的 6–8 页图文
@@ -152,14 +152,14 @@ Skill 默认分成两个阶段，避免“内容还没定，图片已经出完�
 ### 文章转组图
 
 ```text
-使用 $frontier-social-card，把附件文章改成 8 页小红书图文。
+使用 $frontier-social-card-skill，把附件文章改成 8 页小红书图文。
 保留原文观点，不新增未经证实的数据。语气简洁、可信，不要营销腔。
 ```
 
 ### 产品种草
 
 ```text
-使用 $frontier-social-card，为这款产品做 6 页种草图文。
+使用 $frontier-social-card-skill，为这款产品做 6 页种草图文。
 受众是第一次接触这个品类的人。产品图片必须保留包装颜色和 Logo，
 不要虚构价格、认证或用户评价。
 ```
@@ -167,14 +167,14 @@ Skill 默认分成两个阶段，避免“内容还没定，图片已经出完�
 ### 知识教程
 
 ```text
-使用 $frontier-social-card，把“如何做一份竞品分析”拆成 7 页教程卡片。
+使用 $frontier-social-card-skill，把“如何做一份竞品分析”拆成 7 页教程卡片。
 每页只讲一个重点，封面要有明确收益，但不要标题党。
 ```
 
 ### 只先做策划
 
 ```text
-使用 $frontier-social-card，先为这个主题生成分页大纲和每页画面建议，
+使用 $frontier-social-card-skill，先为这个主题生成分页大纲和每页画面建议，
 暂时不要生成图片。
 ```
 
@@ -194,17 +194,17 @@ Skill 默认分成两个阶段，避免“内容还没定，图片已经出完�
 
 ```bash
 git clone https://github.com/Surina/frontier-social-card.git \
-  ~/.codex/skills/frontier-social-card
+  ~/.codex/skills/frontier-social-card-skill
 ```
 
 或使用 SSH：
 
 ```bash
 git clone git@github.com:Surina/frontier-social-card.git \
-  ~/.codex/skills/frontier-social-card
+  ~/.codex/skills/frontier-social-card-skill
 ```
 
-重新打开 Codex 对话后，即可通过 `$frontier-social-card` 调用。
+重新打开 Codex 对话后，即可通过 `$frontier-social-card-skill` 调用。
 
 ### 2. 安装外部 API 依赖
 
@@ -212,13 +212,13 @@ git clone git@github.com:Surina/frontier-social-card.git \
 
 ```bash
 python3 -m pip install -r \
-  ~/.codex/skills/frontier-social-card/requirements.txt
+  ~/.codex/skills/frontier-social-card-skill/requirements.txt
 ```
 
 ### 3. 运行配置向导
 
 ```bash
-python3 ~/.codex/skills/frontier-social-card/scripts/setup.py
+python3 ~/.codex/skills/frontier-social-card-skill/scripts/setup.py
 ```
 
 向导支持：
@@ -231,13 +231,13 @@ python3 ~/.codex/skills/frontier-social-card/scripts/setup.py
 查看当前配置：
 
 ```bash
-python3 ~/.codex/skills/frontier-social-card/scripts/setup.py --status
+python3 ~/.codex/skills/frontier-social-card-skill/scripts/setup.py --status
 ```
 
 Gemini 用户可以切换质量模式：
 
 ```bash
-python3 ~/.codex/skills/frontier-social-card/scripts/setup.py \
+python3 ~/.codex/skills/frontier-social-card-skill/scripts/setup.py \
   --set-quality quality
 ```
 
@@ -281,7 +281,7 @@ Skill 优先使用当前 Agent 已经具备的图片生成工具。如果 Agent 
 ## 项目结构
 
 ```text
-frontier-social-card/
+frontier-social-card-skill/
 ├── SKILL.md                  # Agent 执行工作流
 ├── README.md                 # 面向使用者的说明
 ├── agents/openai.yaml        # Codex 中的显示信息与默认提示词
@@ -331,13 +331,13 @@ Skill 会把产品图作为需要保留身份的素材，但最终保真度仍�
 ### 如何更新？
 
 ```bash
-cd ~/.codex/skills/frontier-social-card
+cd ~/.codex/skills/frontier-social-card-skill
 git pull
 ```
 
 ## English
 
-`frontier-social-card` is a standalone Skill for Codex and other local AI agents. It turns a topic, draft, article, visual reference, or product image into a complete Xiaohongshu / RedNote carousel:
+`frontier-social-card-skill` is a standalone Skill for Codex and other local AI agents. It turns a topic, draft, article, visual reference, or product image into a complete Xiaohongshu / RedNote carousel:
 
 **content analysis → page outline → user approval → post copy → generated pages → final delivery**
 
@@ -346,7 +346,7 @@ It defaults to Chinese, 6–8 mobile-friendly pages, and a vertical 3:4 canvas. 
 ### Quick start
 
 ```text
-Use $frontier-social-card to turn this article into a seven-page
+Use $frontier-social-card-skill to turn this article into a seven-page
 Xiaohongshu / RedNote carousel. Keep the claims grounded in the source.
 ```
 
@@ -356,16 +356,16 @@ The Skill first presents a detailed page-by-page outline. After approval, it cre
 
 ```bash
 git clone https://github.com/Surina/frontier-social-card.git \
-  ~/.codex/skills/frontier-social-card
+  ~/.codex/skills/frontier-social-card-skill
 
-python3 ~/.codex/skills/frontier-social-card/scripts/setup.py
+python3 ~/.codex/skills/frontier-social-card-skill/scripts/setup.py
 ```
 
 Python 3.10 or later is required. If you use an external API, install the dependencies:
 
 ```bash
 python3 -m pip install -r \
-  ~/.codex/skills/frontier-social-card/requirements.txt
+  ~/.codex/skills/frontier-social-card-skill/requirements.txt
 ```
 
 API keys are collected locally by the setup wizard and are never requested in chat, committed to the repository, or embedded in generated artifacts. The Skill does not log in to social platforms or publish content automatically.

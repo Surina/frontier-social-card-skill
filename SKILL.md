@@ -1,5 +1,5 @@
 ---
-name: frontier-social-card
+name: frontier-social-card-skill
 description: Create complete Xiaohongshu social-media image posts and carousel cards from a topic, draft, article, reference images, or product images, including page planning, cover copy, titles, post body, tags, per-page visual prompts, and generated images. Use for 小红书图文、RedNote、RedBook、Xiaohongshu、社交媒体轮播图、分页知识卡片、种草笔记、产品图文、封面和整套配图创作。
 ---
 
@@ -24,7 +24,7 @@ For external API mode, ensure dependencies are installed with `python3 -m pip in
 When distributing or installing this skill manually, always show this setup command after copying the folder:
 
 ```bash
-python3 ~/.codex/skills/frontier-social-card/scripts/setup.py
+python3 ~/.codex/skills/frontier-social-card-skill/scripts/setup.py
 ```
 
 ## Choose the image path
